@@ -1,0 +1,9 @@
+node_modules/
+dist/
+apps/*/dist/
+.env
+.env.*
+!.env.example
+.vercel/
+.railway/
+*.tsbuildinfo
