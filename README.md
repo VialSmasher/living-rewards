@@ -60,6 +60,14 @@ Backend secret variables:
 
 ## Deployment Notes
 
+Current MVP resources:
+
+- GitHub: `VialSmasher/living-rewards`
+- Vercel frontend: `living-rewards-web`
+- Public frontend URL: `https://web-tan-gamma-k3f1gnhc4u.vercel.app`
+- Railway API: `https://appsapi-production-1a3d.up.railway.app`
+- Supabase project: `living-rewards-mvp`
+
 For the clean split:
 
 1. Create a fresh Supabase project for Living Rewards.
