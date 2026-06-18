@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { Link } from 'wouter';
 import {
   AlertTriangle,
@@ -43,6 +43,7 @@ import {
   getResidentUnitNumber,
   rewardCategoryLabel,
 } from './residentLoyaltyLogic';
+import { loadResidentLoyaltyState, mergeResidentLoyaltyState, runResidentLoyaltyAction } from './residentLoyaltyApi';
 import type {
   BuildingNotice,
   CommercialCoiRecord,
@@ -623,6 +624,8 @@ function CommercialWorkspace({
 export default function ResidentLoyaltyManagerPage() {
   const [demo, setDemo] = useState(createResidentLoyaltyDemoState);
   const [activeVertical, setActiveVertical] = useState<PropertyVertical>('commercial');
+  const [isDatabaseBacked, setIsDatabaseBacked] = useState(false);
+  const [persistenceNote, setPersistenceNote] = useState('Public demo mode. Connect auth to persist commercial PM records.');
 
   const building = demo.buildings[0];
   const landlord = demo.landlords[0];
@@ -638,6 +641,54 @@ export default function ResidentLoyaltyManagerPage() {
     demo.notices.reduce((sum, notice) => sum + Math.max(0, demo.residents.length - notice.acknowledgedResidentIds.length), 0) +
     demo.commercialNotices.reduce((sum, notice) => sum + Math.max(0, notice.targetTenantIds.length - notice.acknowledgedTenantIds.length), 0);
   const totalRiskItems = commercialStats.coiRiskCount + commercialStats.criticalDateRiskCount + demo.renewals.filter((renewal) => renewal.status === 'pending' || renewal.status === 'declined').length;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPersistedState() {
+      try {
+        const payload = await loadResidentLoyaltyState();
+        if (cancelled || !payload.state) {
+          if (!cancelled) {
+            setIsDatabaseBacked(false);
+            setPersistenceNote('Public demo mode. Connect auth to persist commercial PM records.');
+          }
+          return;
+        }
+        setDemo((current) => mergeResidentLoyaltyState(current, payload.state));
+        setIsDatabaseBacked(payload.source === 'database');
+        setPersistenceNote(
+          payload.source === 'database'
+            ? 'Database-backed pilot mode. Commercial service, COI, notice, suite, tenant, vendor, and critical-date records are loaded from Supabase.'
+            : 'Public demo mode. Connect auth to persist commercial PM records.',
+        );
+      } catch (error: any) {
+        if (!cancelled) {
+          setIsDatabaseBacked(false);
+          setPersistenceNote(error?.message ? `Database load failed; continuing locally. ${error.message}` : 'Database load failed; continuing locally.');
+        }
+      }
+    }
+
+    loadPersistedState();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const syncPersistedAction = async (path: string) => {
+    if (!isDatabaseBacked) return;
+    try {
+      const payload = await runResidentLoyaltyAction(path);
+      if (payload.state) {
+        setDemo((current) => mergeResidentLoyaltyState(current, payload.state));
+      }
+      setPersistenceNote('Saved to Supabase-backed commercial PM records.');
+    } catch (error: any) {
+      setIsDatabaseBacked(false);
+      setPersistenceNote(error?.message ? `Database save failed; continuing locally. ${error.message}` : 'Database save failed; continuing locally.');
+    }
+  };
 
   const operatingQueue = [
     {
@@ -711,6 +762,7 @@ export default function ResidentLoyaltyManagerPage() {
         request.id === requestId ? { ...request, status: advanceServiceStatus(request.status) } : request,
       ),
     }));
+    void syncPersistedAction(`/api/resident-loyalty/commercial/service-requests/${requestId}/advance`);
   };
 
   const acknowledgeNextCommercialNotice = (noticeId: string) => {
@@ -725,6 +777,7 @@ export default function ResidentLoyaltyManagerPage() {
         ),
       };
     });
+    void syncPersistedAction(`/api/resident-loyalty/commercial/notices/${noticeId}/acknowledge-next`);
   };
 
   const requestCoi = (coiId: string) => {
@@ -734,6 +787,7 @@ export default function ResidentLoyaltyManagerPage() {
         record.id === coiId ? { ...record, lastRequestedAt: new Date().toISOString() } : record,
       ),
     }));
+    void syncPersistedAction(`/api/resident-loyalty/commercial/cois/${coiId}/request`);
   };
 
   return (
@@ -781,6 +835,9 @@ export default function ResidentLoyaltyManagerPage() {
                 <Badge variant="outline" className="border-white/20 bg-white/10 text-white">
                   Fresh Living Rewards repo
                 </Badge>
+                <Badge variant="outline" className="border-white/20 bg-white/10 text-white">
+                  {isDatabaseBacked ? 'Database-backed pilot' : 'Frontend demo'}
+                </Badge>
               </div>
               <h1 className="mt-5 max-w-4xl text-4xl font-black leading-none md:text-6xl">
                 A property operations cockpit, not a rewards dashboard.
@@ -806,6 +863,15 @@ export default function ResidentLoyaltyManagerPage() {
                   <p className="mt-3 text-2xl font-black">{residentialStats.estimatedFollowUpsAvoided + 9}</p>
                   <p className="text-sm text-white/65">estimated follow-ups avoided</p>
                 </div>
+              </div>
+              <div
+                className={`mt-5 rounded-lg border p-3 text-sm leading-6 ${
+                  isDatabaseBacked
+                    ? 'border-emerald-300/30 bg-emerald-400/10 text-emerald-50'
+                    : 'border-white/15 bg-white/10 text-white/70'
+                }`}
+              >
+                {persistenceNote}
               </div>
             </div>
           </div>

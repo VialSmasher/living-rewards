@@ -12,20 +12,28 @@ function isDemoRequest(req: Request) {
   return req.headers["x-demo-mode"] === "true" || getUserId(req) === "demo-user";
 }
 
-function migrationPath() {
+function migrationPaths() {
   const candidates = [
     path.resolve(process.cwd(), "drizzle/0013_resident_loyalty_core.sql"),
     path.resolve(process.cwd(), "../../drizzle/0013_resident_loyalty_core.sql"),
   ];
-  return candidates.find((candidate) => fs.existsSync(candidate));
+  const commercialCandidates = [
+    path.resolve(process.cwd(), "drizzle/0014_commercial_property_ops.sql"),
+    path.resolve(process.cwd(), "../../drizzle/0014_commercial_property_ops.sql"),
+  ];
+  const core = candidates.find((candidate) => fs.existsSync(candidate));
+  const commercial = commercialCandidates.find((candidate) => fs.existsSync(candidate));
+  return [core, commercial].filter((file): file is string => Boolean(file));
 }
 
 async function ensureResidentLoyaltyTables() {
-  const file = migrationPath();
-  if (!file) {
+  const files = migrationPaths();
+  if (files.length === 0) {
     throw new Error("Resident loyalty migration file was not found");
   }
-  await pool.query(fs.readFileSync(file, "utf8"));
+  for (const file of files) {
+    await pool.query(fs.readFileSync(file, "utf8"));
+  }
 }
 
 function dateOnly(value: unknown) {
@@ -44,6 +52,196 @@ function shortUserSlug(userId: string) {
   return userId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toLowerCase() || "demo";
 }
 
+async function bootstrapCommercialPropertyIfEmpty(landlordId: string) {
+  const existing = await queryOne<{ id: string }>(
+    `
+      SELECT id
+      FROM public.property_ops_properties
+      WHERE landlord_id = $1 AND vertical = 'commercial'
+      LIMIT 1
+    `,
+    [landlordId],
+  );
+  if (existing) return;
+
+  const propertyId = randomUUID();
+  const suite101Id = randomUUID();
+  const suite120Id = randomUUID();
+  const suite150Id = randomUUID();
+  const suite210Id = randomUUID();
+  const suite220Id = randomUUID();
+  const suite300Id = randomUUID();
+  const suite310Id = randomUUID();
+  const suite400Id = randomUUID();
+  const tenantMapleId = randomUUID();
+  const tenantNorthlineId = randomUUID();
+  const tenantArcpointId = randomUUID();
+  const tenantPhysioId = randomUUID();
+  const tenantPrairieLawId = randomUUID();
+  const tenantIronGateId = randomUUID();
+  const vendorAlpineId = randomUUID();
+  const vendorSecurityId = randomUUID();
+  const vendorCleanId = randomUUID();
+  const noticeFirePanelId = randomUUID();
+  const noticeLoadingDockId = randomUUID();
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `
+        INSERT INTO public.property_ops_properties
+          (id, landlord_id, name, address, market, vertical, manager_name, suite_count, rentable_area_sf, health_score, positioning)
+        VALUES ($1, $2, 'Jasper Commerce Centre', '10145 109 Street NW, Edmonton', 'Downtown Edmonton commercial',
+                'commercial', 'Marcus Lee', 8, 118400, 72,
+                'Tenant service desk, COIs, critical dates, notices, vendors, and SLA visibility.')
+      `,
+      [propertyId, landlordId],
+    );
+
+    const suites = [
+      [suite101Id, "101", "Main", 2800, "expiring"],
+      [suite120Id, "120", "Main", 4100, "occupied"],
+      [suite150Id, "150", "Main", 3600, "vacant"],
+      [suite210Id, "210", "2", 5200, "occupied"],
+      [suite220Id, "220", "2", 6100, "expiring"],
+      [suite300Id, "300", "3", 8700, "occupied"],
+      [suite310Id, "310", "3", 7400, "occupied"],
+      [suite400Id, "400", "4", 11800, "vacant"],
+    ] as const;
+    for (const [id, suiteNumber, floor, area, status] of suites) {
+      await client.query(
+        `
+          INSERT INTO public.property_ops_commercial_suites
+            (id, property_id, suite_number, floor, rentable_area_sf, occupancy_status)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `,
+        [id, propertyId, suiteNumber, floor, area, status],
+      );
+    }
+
+    const tenants = [
+      [tenantNorthlineId, suite120Id, "Northline Dental Group", "Dr. Mira Bennett", "mira@northline.example", "Medical services", "2023-02-01", "2028-01-31", "low", 88],
+      [tenantMapleId, suite101Id, "Maple & Rye Cafe", "Elena Moreno", "elena@maplerye.example", "Food service", "2021-09-01", "2026-08-31", "medium", 74],
+      [tenantArcpointId, suite210Id, "Arcpoint Design Studio", "Julian Park", "julian@arcpoint.example", "Professional services", "2024-04-01", "2027-03-31", "low", 82],
+      [tenantPhysioId, suite220Id, "River City Physio", "Nadia Chen", "nadia@rivercityphysio.example", "Medical services", "2020-11-01", "2026-10-31", "high", 61],
+      [tenantPrairieLawId, suite300Id, "Prairie Law Chambers", "Graham Singh", "graham@prairielaw.example", "Legal", "2022-07-01", "2027-06-30", "low", 91],
+      [tenantIronGateId, suite310Id, "Iron Gate Technology", "Priya Rao", "priya@irongate.example", "Technology", "2025-01-01", "2028-12-31", "medium", 77],
+    ] as const;
+    for (const [id, suiteId, companyName, contact, email, industry, leaseStart, leaseEnd, risk, health] of tenants) {
+      await client.query(
+        `
+          INSERT INTO public.property_ops_commercial_tenants
+            (id, property_id, suite_id, company_name, primary_contact, email, industry, lease_start, lease_end, renewal_risk, relationship_health)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `,
+        [id, propertyId, suiteId, companyName, contact, email, industry, leaseStart, leaseEnd, risk, health],
+      );
+    }
+
+    const vendors = [
+      [vendorAlpineId, "Alpine Mechanical", "HVAC", 3, 86, "780-555-0141"],
+      [vendorSecurityId, "Capital Security Access", "Access control", 1, 94, "780-555-0188"],
+      [vendorCleanId, "River Valley Clean Co.", "Janitorial", 2, 79, "780-555-0120"],
+    ] as const;
+    for (const [id, name, trade, openJobs, slaPerformance, phone] of vendors) {
+      await client.query(
+        `
+          INSERT INTO public.property_ops_vendors
+            (id, property_id, name, trade, open_jobs, sla_performance, phone)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `,
+        [id, propertyId, name, trade, openJobs, slaPerformance, phone],
+      );
+    }
+
+    const serviceRequests = [
+      [randomUUID(), tenantMapleId, suite101Id, "Cafe seating area too warm during lunch rush", "hvac", "high", "vendor_assigned", 2, vendorAlpineId, "2026-06-14T17:20:00.000Z", "2026-06-16T20:00:00.000Z", "Tenant available before 10:30 AM or after 2:30 PM."],
+      [randomUUID(), tenantPhysioId, suite220Id, "After-hours access cards not working for two clinicians", "access", "urgent", "triage", 0, vendorSecurityId, "2026-06-16T13:05:00.000Z", "2026-06-16T18:00:00.000Z", "Clinic has appointments until 8 PM tonight."],
+      [randomUUID(), tenantNorthlineId, suite120Id, "Ceiling tile stain near sterilization room", "plumbing", "normal", "scheduled", 4, vendorAlpineId, "2026-06-13T15:12:00.000Z", "2026-06-18T18:00:00.000Z", "Inspection approved between patients at noon."],
+      [randomUUID(), tenantPrairieLawId, suite300Id, "Boardroom carpet spill after client event", "janitorial", "low", "waiting_tenant", 1, vendorCleanId, "2026-06-15T21:40:00.000Z", "2026-06-19T18:00:00.000Z", "Tenant needs to confirm room availability."],
+    ] as const;
+    for (const [id, tenantId, suiteId, title, category, priority, status, photoCount, vendorId, submittedAt, slaDueAt, accessNotes] of serviceRequests) {
+      await client.query(
+        `
+          INSERT INTO public.property_ops_commercial_service_requests
+            (id, property_id, tenant_id, suite_id, title, category, priority, status, photo_count, assigned_vendor_id, submitted_at, sla_due_at, access_notes)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        `,
+        [id, propertyId, tenantId, suiteId, title, category, priority, status, photoCount, vendorId, submittedAt, slaDueAt, accessNotes],
+      );
+    }
+
+    const notices = [
+      [noticeFirePanelId, "Fire panel inspection and audible test", "building_notice", "2026-06-12T16:00:00.000Z", "2026-06-18T23:59:00.000Z", [tenantNorthlineId, tenantMapleId, tenantArcpointId, tenantPhysioId, tenantPrairieLawId, tenantIronGateId], [tenantNorthlineId, tenantArcpointId, tenantPrairieLawId, tenantIronGateId]],
+      [noticeLoadingDockId, "Loading dock resurfacing schedule", "access_notice", "2026-06-15T15:30:00.000Z", "2026-06-20T23:59:00.000Z", [tenantMapleId, tenantPhysioId, tenantNorthlineId], [tenantNorthlineId]],
+    ] as const;
+    for (const [id, title, type, sentAt, dueAt, targets, acknowledged] of notices) {
+      await client.query(
+        `
+          INSERT INTO public.property_ops_commercial_notices
+            (id, property_id, title, type, sent_at, due_at)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `,
+        [id, propertyId, title, type, sentAt, dueAt],
+      );
+      for (const tenantId of targets) {
+        await client.query(
+          `
+            INSERT INTO public.property_ops_commercial_notice_targets
+              (notice_id, tenant_id, acknowledged_at)
+            VALUES ($1, $2, $3)
+          `,
+          [id, tenantId, acknowledged.includes(tenantId) ? "2026-06-16T16:00:00.000Z" : null],
+        );
+      }
+    }
+
+    const coiRecords = [
+      [tenantNorthlineId, "Aviva Canada", "2027-01-31", "current", null],
+      [tenantMapleId, "Intact", "2026-07-15", "expiring", "2026-06-10T16:30:00.000Z"],
+      [tenantArcpointId, "Wawanesa", "2026-11-30", "current", null],
+      [tenantPhysioId, "Missing", "2026-05-31", "expired", "2026-06-03T18:00:00.000Z"],
+      [tenantPrairieLawId, "Peace Hills", "2026-12-31", "current", null],
+      [tenantIronGateId, "Missing", "2026-06-30", "missing", null],
+    ] as const;
+    for (const [tenantId, provider, expiryDate, status, lastRequestedAt] of coiRecords) {
+      await client.query(
+        `
+          INSERT INTO public.property_ops_commercial_coi_records
+            (property_id, tenant_id, provider_name, expiry_date, status, last_requested_at)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `,
+        [propertyId, tenantId, provider, expiryDate, status, lastRequestedAt],
+      );
+    }
+
+    const criticalDates = [
+      [tenantMapleId, "renewal_option", "Renewal option notice window opens", "2026-07-31", "due_soon", "Marcus Lee"],
+      [tenantPhysioId, "lease_expiry", "Lease expiry and relocation risk review", "2026-10-31", "upcoming", "Marcus Lee"],
+      [tenantIronGateId, "rent_step", "Scheduled rent step confirmation", "2026-07-01", "due_soon", "Accounting handoff"],
+      [tenantPhysioId, "coi_expiry", "Expired COI requires tenant follow-up", "2026-06-07", "overdue", "Property admin"],
+    ] as const;
+    for (const [tenantId, type, title, dueDate, status, owner] of criticalDates) {
+      await client.query(
+        `
+          INSERT INTO public.property_ops_lease_critical_dates
+            (property_id, tenant_id, type, title, due_date, status, owner)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `,
+        [propertyId, tenantId, type, title, dueDate, status, owner],
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function queryOne<T = any>(sql: string, params: DbValue[] = []) {
   const result = await pool.query(sql, params);
   return result.rows[0] as T | undefined;
@@ -56,7 +254,10 @@ async function bootstrapResidentLoyaltyIfEmpty(userId: string, email?: string | 
     `SELECT id FROM public.resident_loyalty_landlords WHERE owner_user_id = $1 LIMIT 1`,
     [userId],
   );
-  if (existing) return;
+  if (existing) {
+    await bootstrapCommercialPropertyIfEmpty(existing.id);
+    return;
+  }
 
   const landlordId = randomUUID();
   const buildingId = randomUUID();
@@ -184,6 +385,8 @@ async function bootstrapResidentLoyaltyIfEmpty(userId: string, email?: string | 
   } finally {
     client.release();
   }
+
+  await bootstrapCommercialPropertyIfEmpty(landlordId);
 }
 
 async function loadStateForUser(userId: string) {
@@ -251,10 +454,124 @@ async function loadStateForUser(userId: string) {
     `,
     [userId],
   );
+  const commercialProperties = await pool.query(
+    `
+      SELECT p.*
+      FROM public.property_ops_properties p
+      JOIN public.resident_loyalty_landlords l ON l.id = p.landlord_id
+      WHERE l.owner_user_id = $1
+      ORDER BY p.created_at ASC
+    `,
+    [userId],
+  );
+  const commercialSuites = await pool.query(
+    `
+      SELECT s.*
+      FROM public.property_ops_commercial_suites s
+      JOIN public.property_ops_properties p ON p.id = s.property_id
+      JOIN public.resident_loyalty_landlords l ON l.id = p.landlord_id
+      WHERE l.owner_user_id = $1
+      ORDER BY s.suite_number ASC
+    `,
+    [userId],
+  );
+  const commercialTenants = await pool.query(
+    `
+      SELECT t.*
+      FROM public.property_ops_commercial_tenants t
+      JOIN public.property_ops_properties p ON p.id = t.property_id
+      JOIN public.resident_loyalty_landlords l ON l.id = p.landlord_id
+      WHERE l.owner_user_id = $1
+      ORDER BY t.created_at ASC
+    `,
+    [userId],
+  );
+  const commercialServiceRequests = await pool.query(
+    `
+      SELECT sr.*
+      FROM public.property_ops_commercial_service_requests sr
+      JOIN public.property_ops_properties p ON p.id = sr.property_id
+      JOIN public.resident_loyalty_landlords l ON l.id = p.landlord_id
+      WHERE l.owner_user_id = $1
+      ORDER BY sr.submitted_at DESC
+    `,
+    [userId],
+  );
+  const commercialNotices = await pool.query(
+    `
+      SELECT n.*
+      FROM public.property_ops_commercial_notices n
+      JOIN public.property_ops_properties p ON p.id = n.property_id
+      JOIN public.resident_loyalty_landlords l ON l.id = p.landlord_id
+      WHERE l.owner_user_id = $1
+      ORDER BY n.sent_at DESC
+    `,
+    [userId],
+  );
+  const commercialNoticeTargets = await pool.query(
+    `
+      SELECT nt.notice_id, nt.tenant_id, nt.acknowledged_at
+      FROM public.property_ops_commercial_notice_targets nt
+      JOIN public.property_ops_commercial_notices n ON n.id = nt.notice_id
+      JOIN public.property_ops_properties p ON p.id = n.property_id
+      JOIN public.resident_loyalty_landlords l ON l.id = p.landlord_id
+      WHERE l.owner_user_id = $1
+      ORDER BY nt.created_at ASC
+    `,
+    [userId],
+  );
+  const commercialCoiRecords = await pool.query(
+    `
+      SELECT c.*
+      FROM public.property_ops_commercial_coi_records c
+      JOIN public.property_ops_properties p ON p.id = c.property_id
+      JOIN public.resident_loyalty_landlords l ON l.id = p.landlord_id
+      WHERE l.owner_user_id = $1
+      ORDER BY c.expiry_date ASC NULLS LAST
+    `,
+    [userId],
+  );
+  const leaseCriticalDates = await pool.query(
+    `
+      SELECT cd.*
+      FROM public.property_ops_lease_critical_dates cd
+      JOIN public.property_ops_properties p ON p.id = cd.property_id
+      JOIN public.resident_loyalty_landlords l ON l.id = p.landlord_id
+      WHERE l.owner_user_id = $1
+      ORDER BY cd.due_date ASC
+    `,
+    [userId],
+  );
+  const vendors = await pool.query(
+    `
+      SELECT v.*
+      FROM public.property_ops_vendors v
+      JOIN public.property_ops_properties p ON p.id = v.property_id
+      JOIN public.resident_loyalty_landlords l ON l.id = p.landlord_id
+      WHERE l.owner_user_id = $1
+      ORDER BY v.name ASC
+    `,
+    [userId],
+  );
 
   const residentsByUnit = new Map<string, string>();
   for (const resident of residents.rows) {
     residentsByUnit.set(resident.unit_id, resident.id);
+  }
+
+  const tenantsBySuite = new Map<string, string>();
+  for (const tenant of commercialTenants.rows) {
+    tenantsBySuite.set(tenant.suite_id, tenant.id);
+  }
+
+  const noticeTargets = new Map<string, { targetTenantIds: string[]; acknowledgedTenantIds: string[] }>();
+  for (const target of commercialNoticeTargets.rows) {
+    const group = noticeTargets.get(target.notice_id) ?? { targetTenantIds: [], acknowledgedTenantIds: [] };
+    group.targetTenantIds.push(target.tenant_id);
+    if (target.acknowledged_at) {
+      group.acknowledgedTenantIds.push(target.tenant_id);
+    }
+    noticeTargets.set(target.notice_id, group);
   }
 
   return {
@@ -271,6 +588,34 @@ async function loadStateForUser(userId: string) {
       neighbourhood: row.neighbourhood || "",
       unitCount: Number(row.unit_count || 0),
     })),
+    properties: [
+      ...buildings.rows.map((row) => ({
+        id: row.id,
+        landlordId: row.landlord_id,
+        name: row.name,
+        address: row.address || "",
+        market: `${row.neighbourhood || "Edmonton"} multifamily`,
+        vertical: "residential",
+        managerName: landlords.rows[0]?.manager_name || "",
+        unitCount: Number(row.unit_count || 0),
+        healthScore: 78,
+        positioning: "Resident operations, onboarding, maintenance quality, notices, renewals, and incentives.",
+      })),
+      ...commercialProperties.rows.map((row) => ({
+        id: row.id,
+        landlordId: row.landlord_id,
+        name: row.name,
+        address: row.address || "",
+        market: row.market || "",
+        vertical: row.vertical,
+        managerName: row.manager_name || "",
+        unitCount: row.unit_count === null || row.unit_count === undefined ? undefined : Number(row.unit_count),
+        suiteCount: row.suite_count === null || row.suite_count === undefined ? undefined : Number(row.suite_count),
+        rentableAreaSf: row.rentable_area_sf === null || row.rentable_area_sf === undefined ? undefined : Number(row.rentable_area_sf),
+        healthScore: Number(row.health_score || 0),
+        positioning: row.positioning || "",
+      })),
+    ],
     units: units.rows.map((row) => ({
       id: row.id,
       buildingId: row.building_id,
@@ -290,6 +635,84 @@ async function loadStateForUser(userId: string) {
       rentStreakMonths: Number(row.rent_streak_months || 0),
       autopayStatus: row.autopay_status,
       renewalWindow: row.renewal_window,
+    })),
+    commercialSuites: commercialSuites.rows.map((row) => ({
+      id: row.id,
+      propertyId: row.property_id,
+      suiteNumber: row.suite_number,
+      floor: row.floor || "",
+      rentableAreaSf: Number(row.rentable_area_sf || 0),
+      tenantId: tenantsBySuite.get(row.id),
+      occupancyStatus: row.occupancy_status,
+    })),
+    commercialTenants: commercialTenants.rows.map((row) => ({
+      id: row.id,
+      propertyId: row.property_id,
+      suiteId: row.suite_id,
+      companyName: row.company_name,
+      primaryContact: row.primary_contact,
+      email: row.email,
+      industry: row.industry || "",
+      leaseStart: dateOnly(row.lease_start) || "",
+      leaseEnd: dateOnly(row.lease_end) || "",
+      renewalRisk: row.renewal_risk,
+      relationshipHealth: Number(row.relationship_health || 0),
+    })),
+    commercialServiceRequests: commercialServiceRequests.rows.map((row) => ({
+      id: row.id,
+      propertyId: row.property_id,
+      tenantId: row.tenant_id,
+      suiteId: row.suite_id,
+      title: row.title,
+      category: row.category,
+      priority: row.priority,
+      status: row.status,
+      photoCount: Number(row.photo_count || 0),
+      assignedVendorId: row.assigned_vendor_id || undefined,
+      submittedAt: isoDateTime(row.submitted_at) || "",
+      slaDueAt: isoDateTime(row.sla_due_at) || "",
+      accessNotes: row.access_notes || "",
+    })),
+    commercialNotices: commercialNotices.rows.map((row) => {
+      const targets = noticeTargets.get(row.id) ?? { targetTenantIds: [], acknowledgedTenantIds: [] };
+      return {
+        id: row.id,
+        propertyId: row.property_id,
+        title: row.title,
+        type: row.type,
+        sentAt: isoDateTime(row.sent_at) || "",
+        dueAt: isoDateTime(row.due_at) || "",
+        targetTenantIds: targets.targetTenantIds,
+        acknowledgedTenantIds: targets.acknowledgedTenantIds,
+      };
+    }),
+    commercialCoiRecords: commercialCoiRecords.rows.map((row) => ({
+      id: row.id,
+      propertyId: row.property_id,
+      tenantId: row.tenant_id,
+      providerName: row.provider_name || "Missing",
+      expiryDate: dateOnly(row.expiry_date) || "",
+      status: row.status,
+      lastRequestedAt: isoDateTime(row.last_requested_at),
+    })),
+    leaseCriticalDates: leaseCriticalDates.rows.map((row) => ({
+      id: row.id,
+      propertyId: row.property_id,
+      tenantId: row.tenant_id,
+      type: row.type,
+      title: row.title,
+      dueDate: dateOnly(row.due_date) || "",
+      status: row.status,
+      owner: row.owner || "",
+    })),
+    vendors: vendors.rows.map((row) => ({
+      id: row.id,
+      propertyId: row.property_id,
+      name: row.name,
+      trade: row.trade,
+      openJobs: Number(row.open_jobs || 0),
+      slaPerformance: Number(row.sla_performance || 0),
+      phone: row.phone || "",
     })),
     tenantLifecycles: lifecycles.rows.map((row) => ({
       id: row.id,
@@ -375,6 +798,76 @@ async function ensureStepOwned(userId: string, stepId: string) {
     throw error;
   }
   return row;
+}
+
+async function ensureCommercialServiceRequestOwned(userId: string, requestId: string) {
+  const row = await queryOne<{ id: string; status: string }>(
+    `
+      SELECT sr.id, sr.status
+      FROM public.property_ops_commercial_service_requests sr
+      JOIN public.property_ops_properties p ON p.id = sr.property_id
+      JOIN public.resident_loyalty_landlords l ON l.id = p.landlord_id
+      WHERE sr.id = $1 AND l.owner_user_id = $2
+      LIMIT 1
+    `,
+    [requestId, userId],
+  );
+  if (!row) {
+    const error = new Error("Commercial service request not found");
+    (error as any).status = 404;
+    throw error;
+  }
+  return row;
+}
+
+async function ensureCommercialNoticeOwned(userId: string, noticeId: string) {
+  const row = await queryOne<{ id: string }>(
+    `
+      SELECT n.id
+      FROM public.property_ops_commercial_notices n
+      JOIN public.property_ops_properties p ON p.id = n.property_id
+      JOIN public.resident_loyalty_landlords l ON l.id = p.landlord_id
+      WHERE n.id = $1 AND l.owner_user_id = $2
+      LIMIT 1
+    `,
+    [noticeId, userId],
+  );
+  if (!row) {
+    const error = new Error("Commercial notice not found");
+    (error as any).status = 404;
+    throw error;
+  }
+}
+
+async function ensureCommercialCoiOwned(userId: string, coiId: string) {
+  const row = await queryOne<{ id: string }>(
+    `
+      SELECT c.id
+      FROM public.property_ops_commercial_coi_records c
+      JOIN public.property_ops_properties p ON p.id = c.property_id
+      JOIN public.resident_loyalty_landlords l ON l.id = p.landlord_id
+      WHERE c.id = $1 AND l.owner_user_id = $2
+      LIMIT 1
+    `,
+    [coiId, userId],
+  );
+  if (!row) {
+    const error = new Error("Commercial COI record not found");
+    (error as any).status = 404;
+    throw error;
+  }
+}
+
+function nextCommercialServiceStatus(status: string) {
+  const nextStatus: Record<string, string> = {
+    new: "triage",
+    triage: "vendor_assigned",
+    vendor_assigned: "scheduled",
+    scheduled: "completed",
+    waiting_tenant: "scheduled",
+    completed: "completed",
+  };
+  return nextStatus[status] || "triage";
 }
 
 async function completeStepByType(residentId: string, type: string, status = "complete") {
@@ -525,6 +1018,57 @@ export async function registerResidentLoyaltyRoutes(app: Express): Promise<void>
         WHERE id = $1
       `,
       [req.params.stepId],
+    );
+    await sendState(res, userId);
+  }));
+
+  app.post("/api/resident-loyalty/commercial/service-requests/:requestId/advance", requireAuth, asyncHandler(async (req, res) => {
+    if (sendFrontendDemoIfNeeded(req, res)) return;
+    const userId = getUserId(req);
+    const request = await ensureCommercialServiceRequestOwned(userId, req.params.requestId);
+    await pool.query(
+      `
+        UPDATE public.property_ops_commercial_service_requests
+        SET status = $2, updated_at = now()
+        WHERE id = $1
+      `,
+      [req.params.requestId, nextCommercialServiceStatus(request.status)],
+    );
+    await sendState(res, userId);
+  }));
+
+  app.post("/api/resident-loyalty/commercial/notices/:noticeId/acknowledge-next", requireAuth, asyncHandler(async (req, res) => {
+    if (sendFrontendDemoIfNeeded(req, res)) return;
+    const userId = getUserId(req);
+    await ensureCommercialNoticeOwned(userId, req.params.noticeId);
+    await pool.query(
+      `
+        UPDATE public.property_ops_commercial_notice_targets
+        SET acknowledged_at = now(), updated_at = now()
+        WHERE id = (
+          SELECT nt.id
+          FROM public.property_ops_commercial_notice_targets nt
+          WHERE nt.notice_id = $1 AND nt.acknowledged_at IS NULL
+          ORDER BY nt.created_at ASC
+          LIMIT 1
+        )
+      `,
+      [req.params.noticeId],
+    );
+    await sendState(res, userId);
+  }));
+
+  app.post("/api/resident-loyalty/commercial/cois/:coiId/request", requireAuth, asyncHandler(async (req, res) => {
+    if (sendFrontendDemoIfNeeded(req, res)) return;
+    const userId = getUserId(req);
+    await ensureCommercialCoiOwned(userId, req.params.coiId);
+    await pool.query(
+      `
+        UPDATE public.property_ops_commercial_coi_records
+        SET last_requested_at = now(), updated_at = now()
+        WHERE id = $1
+      `,
+      [req.params.coiId],
     );
     await sendState(res, userId);
   }));

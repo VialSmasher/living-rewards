@@ -31,6 +31,7 @@ The landlord value proposition is fewer manager follow-ups, cleaner operating re
 - `/resident-loyalty/setup` landlord onboarding and resident lifecycle demo
 - `/api/health` API health check
 - `/api/resident-loyalty/*` resident loyalty demo/persistence endpoints
+- `/api/resident-loyalty/commercial/*` commercial PM pilot persistence endpoints
 
 ## Local Development
 
@@ -73,9 +74,10 @@ For the clean split:
 
 1. Create a fresh Supabase project for Living Rewards.
 2. Run `drizzle/0013_resident_loyalty_core.sql` against the fresh database.
-3. Create a fresh Railway service from `apps/api`.
-4. Configure backend secrets only in Railway.
-5. Create a fresh Vercel project from `apps/web`.
-6. Set `VITE_API_BASE_URL` to the new Railway API base URL.
+3. Run `drizzle/0014_commercial_property_ops.sql` against the fresh database.
+4. Create a fresh Railway service from `apps/api`.
+5. Configure backend secrets only in Railway.
+6. Create a fresh Vercel project from `apps/web`.
+7. Set `VITE_API_BASE_URL` to the new Railway API base URL.
 
 No LevelCRE Railway, Vercel, or Supabase project should be used for this app.

@@ -3,7 +3,20 @@ import type { ResidentLoyaltyDemoState } from './types';
 
 type ResidentLoyaltyStatePatch = Partial<Pick<
   ResidentLoyaltyDemoState,
-  'landlords' | 'buildings' | 'units' | 'residents' | 'tenantLifecycles' | 'onboardingSteps'
+  | 'landlords'
+  | 'properties'
+  | 'buildings'
+  | 'units'
+  | 'residents'
+  | 'commercialSuites'
+  | 'commercialTenants'
+  | 'commercialServiceRequests'
+  | 'commercialNotices'
+  | 'commercialCoiRecords'
+  | 'leaseCriticalDates'
+  | 'vendors'
+  | 'tenantLifecycles'
+  | 'onboardingSteps'
 >>;
 
 type ResidentLoyaltyStateResponse = {
@@ -19,9 +32,19 @@ export function mergeResidentLoyaltyState(
   return {
     ...base,
     landlords: patch.landlords?.length ? patch.landlords : base.landlords,
+    properties: patch.properties?.length ? patch.properties : base.properties,
     buildings: patch.buildings?.length ? patch.buildings : base.buildings,
     units: patch.units?.length ? patch.units : base.units,
     residents: patch.residents?.length ? patch.residents : base.residents,
+    commercialSuites: patch.commercialSuites?.length ? patch.commercialSuites : base.commercialSuites,
+    commercialTenants: patch.commercialTenants?.length ? patch.commercialTenants : base.commercialTenants,
+    commercialServiceRequests: patch.commercialServiceRequests?.length
+      ? patch.commercialServiceRequests
+      : base.commercialServiceRequests,
+    commercialNotices: patch.commercialNotices?.length ? patch.commercialNotices : base.commercialNotices,
+    commercialCoiRecords: patch.commercialCoiRecords?.length ? patch.commercialCoiRecords : base.commercialCoiRecords,
+    leaseCriticalDates: patch.leaseCriticalDates?.length ? patch.leaseCriticalDates : base.leaseCriticalDates,
+    vendors: patch.vendors?.length ? patch.vendors : base.vendors,
     tenantLifecycles: patch.tenantLifecycles?.length ? patch.tenantLifecycles : base.tenantLifecycles,
     onboardingSteps: patch.onboardingSteps?.length ? patch.onboardingSteps : base.onboardingSteps,
   };
