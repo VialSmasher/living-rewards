@@ -28,6 +28,7 @@ export default function App() {
         <Route path="/" component={LandingPage} />
         <Route path="/resident-loyalty/resident-demo" component={ResidentLoyaltyResidentDemoPage} />
         <Route path="/resident-loyalty/setup" component={ResidentLoyaltySetupPage} />
+        <Route path="/property-ops" component={ResidentLoyaltyManagerPage} />
         <Route path="/resident-loyalty" component={ResidentLoyaltyManagerPage} />
         <Route path="/loading" component={Spinner} />
         <Route component={NotFound} />

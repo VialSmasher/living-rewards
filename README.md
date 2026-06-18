@@ -25,6 +25,7 @@ The landlord value proposition is fewer manager follow-ups, cleaner operating re
 ## Current Routes
 
 - `/` public product landing page
+- `/property-ops` residential/commercial property operations cockpit
 - `/resident-loyalty` manager/product demo
 - `/resident-loyalty/resident-demo` resident wallet demo
 - `/resident-loyalty/setup` landlord onboarding and resident lifecycle demo

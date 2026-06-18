@@ -1,8 +1,15 @@
 import { POINT_RULES } from './residentLoyaltyLogic';
 import type {
   BuildingNotice,
+  CommercialCoiRecord,
+  CommercialNotice,
+  CommercialServiceRequest,
+  CommercialSuite,
+  CommercialTenant,
   Landlord,
+  LeaseCriticalDate,
   MaintenanceRequest,
+  PropertyOpsProperty,
   ResidentOnboardingStep,
   RenewalStatus,
   Resident,
@@ -15,10 +22,12 @@ import type {
   RewardOption,
   RewardRedemption,
   TenantLifecycleRecord,
+  VendorRecord,
 } from './types';
 
 const LANDLORD_ID = 'landlord-rivergate';
 const BUILDING_ID = 'building-maclaren-house';
+const COMMERCIAL_PROPERTY_ID = 'property-jasper-commerce-centre';
 
 const unitId = (unitNumber: string) => `unit-${unitNumber}`;
 
@@ -38,6 +47,34 @@ const building = {
   neighbourhood: 'Oliver',
   unitCount: 16,
 };
+
+const properties: PropertyOpsProperty[] = [
+  {
+    id: BUILDING_ID,
+    landlordId: LANDLORD_ID,
+    name: 'Maclaren House',
+    address: '10418 122 Street NW, Edmonton',
+    market: 'Edmonton multifamily',
+    vertical: 'residential',
+    managerName: 'Priya Shah',
+    unitCount: 16,
+    healthScore: 78,
+    positioning: 'Resident operations, onboarding, maintenance quality, notices, renewals, and incentives.',
+  },
+  {
+    id: COMMERCIAL_PROPERTY_ID,
+    landlordId: LANDLORD_ID,
+    name: 'Jasper Commerce Centre',
+    address: '10145 109 Street NW, Edmonton',
+    market: 'Downtown Edmonton commercial',
+    vertical: 'commercial',
+    managerName: 'Marcus Lee',
+    suiteCount: 8,
+    rentableAreaSf: 118400,
+    healthScore: 72,
+    positioning: 'Tenant service desk, COIs, critical dates, notices, vendors, and SLA visibility.',
+  },
+];
 
 const residentSeeds = [
   ['resident-amelia-wong', 'Amelia Wong', '101', 7, 'enabled', 'active'],
@@ -82,6 +119,259 @@ const residents: Resident[] = residentSeeds.map((seed, index) => ({
   autopayStatus: seed[4],
   renewalWindow: seed[5],
 }));
+
+const suiteId = (suiteNumber: string) => `suite-${suiteNumber.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
+const commercialTenantSeeds = [
+  ['tenant-northline-dental', 'Northline Dental Group', '120', 'Dr. Mira Bennett', 'mira@northline.example', 'Medical services', '2023-02-01', '2028-01-31', 'low', 88],
+  ['tenant-maple-and-rye', 'Maple & Rye Cafe', '101', 'Elena Moreno', 'elena@maplerye.example', 'Food service', '2021-09-01', '2026-08-31', 'medium', 74],
+  ['tenant-arcpoint-studio', 'Arcpoint Design Studio', '210', 'Julian Park', 'julian@arcpoint.example', 'Professional services', '2024-04-01', '2027-03-31', 'low', 82],
+  ['tenant-river-city-physio', 'River City Physio', '220', 'Nadia Chen', 'nadia@rivercityphysio.example', 'Medical services', '2020-11-01', '2026-10-31', 'high', 61],
+  ['tenant-prairie-law', 'Prairie Law Chambers', '300', 'Graham Singh', 'graham@prairielaw.example', 'Legal', '2022-07-01', '2027-06-30', 'low', 91],
+  ['tenant-iron-gate-tech', 'Iron Gate Technology', '310', 'Priya Rao', 'priya@irongate.example', 'Technology', '2025-01-01', '2028-12-31', 'medium', 77],
+] as const;
+
+const commercialSuites: CommercialSuite[] = [
+  { id: suiteId('101'), propertyId: COMMERCIAL_PROPERTY_ID, suiteNumber: '101', floor: 'Main', rentableAreaSf: 2800, tenantId: 'tenant-maple-and-rye', occupancyStatus: 'expiring' },
+  { id: suiteId('120'), propertyId: COMMERCIAL_PROPERTY_ID, suiteNumber: '120', floor: 'Main', rentableAreaSf: 4100, tenantId: 'tenant-northline-dental', occupancyStatus: 'occupied' },
+  { id: suiteId('150'), propertyId: COMMERCIAL_PROPERTY_ID, suiteNumber: '150', floor: 'Main', rentableAreaSf: 3600, occupancyStatus: 'vacant' },
+  { id: suiteId('210'), propertyId: COMMERCIAL_PROPERTY_ID, suiteNumber: '210', floor: '2', rentableAreaSf: 5200, tenantId: 'tenant-arcpoint-studio', occupancyStatus: 'occupied' },
+  { id: suiteId('220'), propertyId: COMMERCIAL_PROPERTY_ID, suiteNumber: '220', floor: '2', rentableAreaSf: 6100, tenantId: 'tenant-river-city-physio', occupancyStatus: 'expiring' },
+  { id: suiteId('300'), propertyId: COMMERCIAL_PROPERTY_ID, suiteNumber: '300', floor: '3', rentableAreaSf: 8700, tenantId: 'tenant-prairie-law', occupancyStatus: 'occupied' },
+  { id: suiteId('310'), propertyId: COMMERCIAL_PROPERTY_ID, suiteNumber: '310', floor: '3', rentableAreaSf: 7400, tenantId: 'tenant-iron-gate-tech', occupancyStatus: 'occupied' },
+  { id: suiteId('400'), propertyId: COMMERCIAL_PROPERTY_ID, suiteNumber: '400', floor: '4', rentableAreaSf: 11800, occupancyStatus: 'vacant' },
+];
+
+const commercialTenants: CommercialTenant[] = commercialTenantSeeds.map((seed) => ({
+  id: seed[0],
+  propertyId: COMMERCIAL_PROPERTY_ID,
+  suiteId: suiteId(seed[2]),
+  companyName: seed[1],
+  primaryContact: seed[3],
+  email: seed[4],
+  industry: seed[5],
+  leaseStart: seed[6],
+  leaseEnd: seed[7],
+  renewalRisk: seed[8],
+  relationshipHealth: seed[9],
+}));
+
+const vendors: VendorRecord[] = [
+  {
+    id: 'vendor-alpine-mechanical',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    name: 'Alpine Mechanical',
+    trade: 'HVAC',
+    openJobs: 3,
+    slaPerformance: 86,
+    phone: '780-555-0141',
+  },
+  {
+    id: 'vendor-capital-security',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    name: 'Capital Security Access',
+    trade: 'Access control',
+    openJobs: 1,
+    slaPerformance: 94,
+    phone: '780-555-0188',
+  },
+  {
+    id: 'vendor-river-valley-clean',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    name: 'River Valley Clean Co.',
+    trade: 'Janitorial',
+    openJobs: 2,
+    slaPerformance: 79,
+    phone: '780-555-0120',
+  },
+];
+
+const commercialServiceRequests: CommercialServiceRequest[] = [
+  {
+    id: 'commercial-request-hvac-cafe',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-maple-and-rye',
+    suiteId: suiteId('101'),
+    title: 'Cafe seating area too warm during lunch rush',
+    category: 'hvac',
+    priority: 'high',
+    status: 'vendor_assigned',
+    photoCount: 2,
+    assignedVendorId: 'vendor-alpine-mechanical',
+    submittedAt: '2026-06-14T17:20:00.000Z',
+    slaDueAt: '2026-06-16T20:00:00.000Z',
+    accessNotes: 'Tenant available before 10:30 AM or after 2:30 PM.',
+  },
+  {
+    id: 'commercial-request-access-physio',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-river-city-physio',
+    suiteId: suiteId('220'),
+    title: 'After-hours access cards not working for two clinicians',
+    category: 'access',
+    priority: 'urgent',
+    status: 'triage',
+    photoCount: 0,
+    assignedVendorId: 'vendor-capital-security',
+    submittedAt: '2026-06-16T13:05:00.000Z',
+    slaDueAt: '2026-06-16T18:00:00.000Z',
+    accessNotes: 'Clinic has appointments until 8 PM tonight.',
+  },
+  {
+    id: 'commercial-request-leak-dental',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-northline-dental',
+    suiteId: suiteId('120'),
+    title: 'Ceiling tile stain near sterilization room',
+    category: 'plumbing',
+    priority: 'normal',
+    status: 'scheduled',
+    photoCount: 4,
+    assignedVendorId: 'vendor-alpine-mechanical',
+    submittedAt: '2026-06-13T15:12:00.000Z',
+    slaDueAt: '2026-06-18T18:00:00.000Z',
+    accessNotes: 'Inspection approved between patients at noon.',
+  },
+  {
+    id: 'commercial-request-janitorial-law',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-prairie-law',
+    suiteId: suiteId('300'),
+    title: 'Boardroom carpet spill after client event',
+    category: 'janitorial',
+    priority: 'low',
+    status: 'waiting_tenant',
+    photoCount: 1,
+    assignedVendorId: 'vendor-river-valley-clean',
+    submittedAt: '2026-06-15T21:40:00.000Z',
+    slaDueAt: '2026-06-19T18:00:00.000Z',
+    accessNotes: 'Tenant needs to confirm room availability.',
+  },
+];
+
+const commercialNotices: CommercialNotice[] = [
+  {
+    id: 'commercial-notice-fire-panel',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    title: 'Fire panel inspection and audible test',
+    type: 'building_notice',
+    sentAt: '2026-06-12T16:00:00.000Z',
+    dueAt: '2026-06-18T23:59:00.000Z',
+    targetTenantIds: commercialTenants.map((tenant) => tenant.id),
+    acknowledgedTenantIds: [
+      'tenant-northline-dental',
+      'tenant-arcpoint-studio',
+      'tenant-prairie-law',
+      'tenant-iron-gate-tech',
+    ],
+  },
+  {
+    id: 'commercial-notice-loading-dock',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    title: 'Loading dock resurfacing schedule',
+    type: 'access_notice',
+    sentAt: '2026-06-15T15:30:00.000Z',
+    dueAt: '2026-06-20T23:59:00.000Z',
+    targetTenantIds: ['tenant-maple-and-rye', 'tenant-river-city-physio', 'tenant-northline-dental'],
+    acknowledgedTenantIds: ['tenant-northline-dental'],
+  },
+];
+
+const commercialCoiRecords: CommercialCoiRecord[] = [
+  {
+    id: 'coi-northline',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-northline-dental',
+    providerName: 'Aviva Canada',
+    expiryDate: '2027-01-31',
+    status: 'current',
+  },
+  {
+    id: 'coi-maple',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-maple-and-rye',
+    providerName: 'Intact',
+    expiryDate: '2026-07-15',
+    status: 'expiring',
+    lastRequestedAt: '2026-06-10T16:30:00.000Z',
+  },
+  {
+    id: 'coi-arcpoint',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-arcpoint-studio',
+    providerName: 'Wawanesa',
+    expiryDate: '2026-11-30',
+    status: 'current',
+  },
+  {
+    id: 'coi-physio',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-river-city-physio',
+    providerName: 'Missing',
+    expiryDate: '2026-05-31',
+    status: 'expired',
+    lastRequestedAt: '2026-06-03T18:00:00.000Z',
+  },
+  {
+    id: 'coi-prairie-law',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-prairie-law',
+    providerName: 'Peace Hills',
+    expiryDate: '2026-12-31',
+    status: 'current',
+  },
+  {
+    id: 'coi-iron-gate',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-iron-gate-tech',
+    providerName: 'Missing',
+    expiryDate: '2026-06-30',
+    status: 'missing',
+  },
+];
+
+const leaseCriticalDates: LeaseCriticalDate[] = [
+  {
+    id: 'critical-maple-renewal',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-maple-and-rye',
+    type: 'renewal_option',
+    title: 'Renewal option notice window opens',
+    dueDate: '2026-07-31',
+    status: 'due_soon',
+    owner: 'Marcus Lee',
+  },
+  {
+    id: 'critical-physio-expiry',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-river-city-physio',
+    type: 'lease_expiry',
+    title: 'Lease expiry and relocation risk review',
+    dueDate: '2026-10-31',
+    status: 'upcoming',
+    owner: 'Marcus Lee',
+  },
+  {
+    id: 'critical-iron-gate-rent-step',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-iron-gate-tech',
+    type: 'rent_step',
+    title: 'Scheduled rent step confirmation',
+    dueDate: '2026-07-01',
+    status: 'due_soon',
+    owner: 'Accounting handoff',
+  },
+  {
+    id: 'critical-physio-coi',
+    propertyId: COMMERCIAL_PROPERTY_ID,
+    tenantId: 'tenant-river-city-physio',
+    type: 'coi_expiry',
+    title: 'Expired COI requires tenant follow-up',
+    dueDate: '2026-06-07',
+    status: 'overdue',
+    owner: 'Property admin',
+  },
+];
 
 const residentById = new Map(residents.map((resident) => [resident.id, resident]));
 
@@ -615,9 +905,21 @@ const rewardRedemptions: RewardRedemption[] = [
 export function createResidentLoyaltyDemoState(): ResidentLoyaltyDemoState {
   return {
     landlords: [...landlords],
+    properties: properties.map((property) => ({ ...property })),
     buildings: [{ ...building }],
     units: units.map((unit) => ({ ...unit })),
     residents: residents.map((resident) => ({ ...resident })),
+    commercialSuites: commercialSuites.map((suite) => ({ ...suite })),
+    commercialTenants: commercialTenants.map((tenant) => ({ ...tenant })),
+    commercialServiceRequests: commercialServiceRequests.map((request) => ({ ...request })),
+    commercialNotices: commercialNotices.map((notice) => ({
+      ...notice,
+      targetTenantIds: [...notice.targetTenantIds],
+      acknowledgedTenantIds: [...notice.acknowledgedTenantIds],
+    })),
+    commercialCoiRecords: commercialCoiRecords.map((record) => ({ ...record })),
+    leaseCriticalDates: leaseCriticalDates.map((date) => ({ ...date })),
+    vendors: vendors.map((vendor) => ({ ...vendor })),
     events: events.map((item) => ({ ...item, metadata: { ...item.metadata } })),
     tasks: tasks.map((task) => ({ ...task })),
     rewards: rewards.map((reward) => ({ ...reward })),

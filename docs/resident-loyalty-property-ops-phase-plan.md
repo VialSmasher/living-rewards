@@ -2,6 +2,8 @@
 
 Date: 2026-06-15
 
+Update: see `docs/property-ops-pms-strategy-plan.md` for the 2026-06-16 strategy refocus covering commercial property management, PMS expansion, and the next C+ product sprint.
+
 ## Product Thesis
 
 Living Rewards should become a lightweight property operations portal that residents actually want to use. The rewards layer is not the whole product. It is the engagement loop that gets residents to complete useful operational actions without the property manager chasing them.
